@@ -24,8 +24,8 @@ It is a simple implementation of macof (that's why the repo is named that way).
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/JNStrauss/macof.git
-   cd macof
+   git clone https://github.com/JNStrauss/cam_flood.git
+   cd cam_flood
    make
    ```
 
