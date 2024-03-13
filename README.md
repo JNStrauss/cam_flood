@@ -5,7 +5,7 @@ CAM Flood is a C program designed to perform CAM table overflow attacks on Layer
 ## Overview
 
 The CAM Flood program generates a large number of Ethernet frames with random MAC addresses and IPv4 payloads. These frames are then sent to the target switch using the libpcap library, causing it to become overwhelmed and enter hub mode.
-It is a simple implementation of macof (that's why the repo is named that way).
+It is a simple C implementation of macof.
 
 ## Features
 
