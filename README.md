@@ -30,9 +30,15 @@ It is a simple implementation of macof (that's why the repo is named that way).
    ```
 
 2. Run the program
-  ```bash
-  sudo ./cam_flood
-  ```
+   ```bash
+   sudo ./cam_flood [options]
+   ```
+3. Options
+   ```bash
+   -h, --help        Display this help message
+   -n, --number      Number of packets to send
+   -i, --interface   Interface on which to do the attack
+   ```
 
-3. License
+4. License
    The program in under a MIT License
