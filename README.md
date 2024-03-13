@@ -41,4 +41,5 @@ It is a simple implementation of macof (that's why the repo is named that way).
    ```
 
 4. License
+   
    The program in under a MIT License
