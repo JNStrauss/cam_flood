@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <pcap.h>
 #include <netinet/ip.h> 
+#include "cam_flood.h"
 
 #define ETHER_HEADER_LEN 14
 
