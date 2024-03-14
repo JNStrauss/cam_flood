@@ -35,9 +35,12 @@ It is a simple C implementation of macof.
    ```
 3. Options
    ```bash
-   -h, --help        Display this help message
-   -n, --number      Number of packets to send
-   -i, --interface   Interface on which to do the attack
+  -h, --help        Display this help message
+  -n, --number      Number of packets to send (default 10000)
+  -i, --interface   Interface on which to do the attack (default 'eth0')
+  -s, --src         Specify source IP address (default random for each packet)
+  -d, --dst         Specify destination IP address (default random for each packet)
+  -e, --target      Specify taget mac address (default random for each packet)
    ```
 
 4. License
